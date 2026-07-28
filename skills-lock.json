@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "use-tinyfish": {
+      "source": "tinyfish-io/tinyfish-cookbook",
+      "sourceType": "github",
+      "skillPath": "skills/use-tinyfish/SKILL.md",
+      "computedHash": "b6b9b3f6afcb3cacfc044c690ff238bd99c981d8fc03ec178de13e5a6c4eb45d"
+    }
+  }
+}

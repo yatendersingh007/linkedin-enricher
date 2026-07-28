@@ -1,0 +1,6 @@
+tinyfish
+openpyxl
+python-dotenv
+pyyaml
+rich
+flask

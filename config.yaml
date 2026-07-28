@@ -1,0 +1,11 @@
+# LinkedIn Enricher configuration
+# ---------------------------------
+# Exact header names of the source columns in your Excel.
+linkedin_url_column: "Linkedin"
+positions_column: "Positions/Company"
+location_column: "Location"
+name_column: "Name"
+
+# Tier 2 (TinyFish Fetch) parallel workers. TinyFish enforces per-minute
+# rate limits by plan; the script staggers requests and backs off on 429s.
+fetch_workers: 8

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn Enricher</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #161d2e; --border: #232b3d; --text: #e6e9f0;
+    --muted: #8b93a7; --accent: #3b82f6; --good: #34d399; --warn: #fbbf24;
+    --bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--text); margin: 0;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-bottom: 20px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 14px; color: var(--muted);
+              text-transform: uppercase; letter-spacing: .04em; }
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: 8px; padding: 28px;
+    text-align: center; color: var(--muted); cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone.drag { border-color: var(--accent); background: #1a2338; }
+  .dropzone input { display: none; }
+  select, button {
+    font: inherit; border-radius: 8px; border: 1px solid var(--border);
+    background: #1a2338; color: var(--text); padding: 9px 14px;
+  }
+  select { width: 100%; margin-bottom: 12px; }
+  button.primary { background: var(--accent); border-color: var(--accent);
+                   color: #fff; cursor: pointer; font-weight: 600; }
+  button.primary:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { background: transparent; cursor: pointer; color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .modes { display: flex; gap: 8px; margin-bottom: 14px; }
+  .mode-btn {
+    flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: #1a2338; cursor: pointer; text-align: center; font-size: 13px;
+  }
+  .mode-btn.active { border-color: var(--accent); background: #1e2a45; }
+  .mode-btn b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .mode-btn span { color: var(--muted); font-size: 12px; }
+  .fileinfo { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .hidden { display: none !important; }
+  .bar-wrap { background: #1a2338; border-radius: 8px; height: 22px;
+              overflow: hidden; margin: 14px 0 6px; }
+  .bar { background: linear-gradient(90deg, var(--accent), var(--good));
+         height: 100%; width: 0%; transition: width .4s; }
+  .barlabel { font-size: 13px; color: var(--muted); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .chip { background: #1a2338; border-radius: 14px; padding: 4px 11px; font-size: 12px; }
+  .chip b { color: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .ok { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .summary-box { background: #0f2a20; border: 1px solid #1e5c42; border-radius: 8px;
+                 padding: 14px 16px; font-size: 13px; white-space: pre-wrap;
+                 line-height: 1.6; margin-top: 14px; }
+  .err-box { background: #2a0f0f; border: 1px solid #5c1e1e; border-radius: 8px;
+             padding: 14px 16px; font-size: 13px; margin-top: 14px; }
+  a.dl { color: var(--accent); text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LinkedIn Enricher</h1>
+  <div class="sub">Upload a lead spreadsheet, enrich it with company/title data, download the result.</div>
+
+  <div class="panel" id="uploadPanel">
+    <h2>1. Choose a file</h2>
+    <div class="dropzone" id="dropzone">
+      <div id="dzText">Drop a .xlsx or .csv file here, or click to browse</div>
+      <input type="file" id="fileInput" accept=".xlsx,.csv">
+    </div>
+    <div class="fileinfo" id="fileInfo"></div>
+  </div>
+
+  <div class="panel hidden" id="runPanel">
+    <h2>2. Choose depth &amp; run</h2>
+    <div class="modes">
+      <div class="mode-btn active" data-mode="tier1">
+        <b>Free parse</b><span>Local only, no API cost</span>
+      </div>
+      <div class="mode-btn" data-mode="fetch">
+        <b>+ Fetch</b><span>Fill gaps via LinkedIn fetch</span>
+      </div>
+      <div class="mode-btn" data-mode="all">
+        <b>+ Search</b><span>Full pipeline, most complete</span>
+      </div>
+    </div>
+    <div class="row">
+      <button class="primary" id="runBtn">Run</button>
+      <label style="font-size:13px;color:var(--muted)">
+        <input type="checkbox" id="resetChk"> reset NEEDS_RESEARCH rows first
+      </label>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="progressPanel">
+    <h2>3. Progress</h2>
+    <div id="tierLabel" style="font-size:14px;font-weight:600"></div>
+    <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+    <div class="barlabel" id="barLabel"></div>
+    <div class="chips" id="chips"></div>
+    <table id="recentTable">
+      <thead><tr><th>Name</th><th>Found</th><th>Status</th></tr></thead>
+      <tbody id="recentBody"></tbody>
+    </table>
+    <div class="summary-box hidden" id="summaryBox"></div>
+    <div class="err-box hidden" id="errBox"></div>
+    <div class="row" style="margin-top:14px">
+      <a class="dl hidden" id="downloadLink" href="#">Download enriched file &#8595;</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const runPanel = document.getElementById('runPanel');
+const runBtn = document.getElementById('runBtn');
+const resetChk = document.getElementById('resetChk');
+const progressPanel = document.getElementById('progressPanel');
+
+let currentFilename = null;
+let currentMode = 'tier1';
+
+dropzone.addEventListener('click', () => fileInput.click());
+['dragover', 'dragleave', 'drop'].forEach(evt =>
+  dropzone.addEventListener(evt, e => {
+    e.preventDefault();
+    dropzone.classList.toggle('drag', evt === 'dragover');
+  }));
+dropzone.addEventListener('drop', e => {
+  if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) uploadFile(fileInput.files[0]);
+});
+
+async function uploadFile(file) {
+  fileInfo.textContent = 'Uploading...';
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch('/api/upload', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.error) { fileInfo.textContent = 'Error: ' + d.error; return; }
+  currentFilename = d.filename;
+  fileInfo.textContent = `${d.filename} — ${d.rows} rows — columns: ${d.headers.join(', ')}`;
+  runPanel.classList.remove('hidden');
+}
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+  });
+});
+
+runBtn.addEventListener('click', async () => {
+  if (!currentFilename) return;
+  runBtn.disabled = true;
+  progressPanel.classList.remove('hidden');
+  document.getElementById('summaryBox').classList.add('hidden');
+  document.getElementById('errBox').classList.add('hidden');
+  document.getElementById('downloadLink').classList.add('hidden');
+
+  const r = await fetch('/api/run', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: currentFilename, mode: currentMode,
+                          reset: resetChk.checked })
+  });
+  const d = await r.json();
+  if (d.error) {
+    showError(d.error);
+    runBtn.disabled = false;
+    return;
+  }
+  streamProgress(d.job_id);
+});
+
+function fmtTime(s) {
+  if (s == null) return '—';
+  s = Math.round(s);
+  return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+}
+
+function streamProgress(jobId) {
+  const es = new EventSource(`/api/stream/${jobId}`);
+  es.onmessage = (evt) => {
+    const d = JSON.parse(evt.data);
+    if (d.state === 'ERROR') {
+      showError(d.error || 'unknown error');
+      es.close();
+      runBtn.disabled = false;
+      return;
+    }
+    renderProgress(d);
+    if (d.state === 'COMPLETE') {
+      es.close();
+      runBtn.disabled = false;
+      finishRun(jobId, d);
+    }
+  };
+  es.onerror = () => { /* browser auto-reconnects; keepalive comments prevent timeout */ };
+}
+
+function renderProgress(d) {
+  document.getElementById('tierLabel').textContent = `${d.state} — ${d.tier || ''}`;
+  const pct = d.total ? Math.round(100 * d.done / d.total) : 0;
+  document.getElementById('bar').style.width = pct + '%';
+  document.getElementById('barLabel').textContent =
+    `${d.done}/${d.total} rows (${pct}%) — now: ${d.current || '—'} — ` +
+    `requests: ${d.requests} — elapsed ${fmtTime(d.elapsed_s)} — ETA ${fmtTime(d.eta_s)}`;
+
+  const chips = document.getElementById('chips');
+  chips.innerHTML = '';
+  for (const [k, v] of Object.entries(d.counts || {}))
+    chips.insertAdjacentHTML('beforeend', `<span class="chip">${k}: <b>${v}</b></span>`);
+
+  const body = document.getElementById('recentBody');
+  body.innerHTML = '';
+  for (const row of (d.recent || [])) {
+    const cls = row.status === 'NEEDS_RESEARCH' ? 'warn' :
+                (row.status === 'SKIPPED' ? 'bad' : 'ok');
+    body.insertAdjacentHTML('beforeend',
+      `<tr><td>${row.name || ''}</td><td>${row.found || '—'}</td>` +
+      `<td class="${cls}">${row.status}</td></tr>`);
+  }
+
+  if (d.summary) {
+    const box = document.getElementById('summaryBox');
+    box.classList.remove('hidden');
+    box.textContent = d.summary;
+  }
+}
+
+async function finishRun(jobId, progressData) {
+  const r = await fetch(`/api/status/${jobId}`);
+  const d = await r.json();
+  if (d.result && d.result.output_name) {
+    const link = document.getElementById('downloadLink');
+    link.href = `/api/download/${encodeURIComponent(d.result.output_name)}`;
+    link.textContent = `Download ${d.result.output_name} ↓`;
+    link.classList.remove('hidden');
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('errBox');
+  box.classList.remove('hidden');
+  box.textContent = 'Error: ' + msg;
+}
+</script>
+</body>
+</html>

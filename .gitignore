@@ -1,0 +1,14 @@
+# Secrets — never commit the real API key
+.env
+
+# Run artifacts
+output/
+__pycache__/
+*.pyc
+
+# Installed agent skills
+.agents/
+
+input/
+.venv/
+*.log
