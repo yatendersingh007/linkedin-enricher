@@ -12,3 +12,7 @@ __pycache__/
 input/
 .venv/
 *.log
+
+# Keep env variants out of git, but keep the template
+.env.*
+!.env.example
